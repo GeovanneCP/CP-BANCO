@@ -22,10 +22,10 @@ HTML_TEMPLATE = """
         table { border-collapse: collapse; width: 100%; margin-top: 20px; background: #222; }
         th, td { border: 1px solid #444; padding: 12px; text-align: left; }
         th { background: #333; }
-        .btn { background: #ff4500; color: white; padding: 10px 20px; border: none; cursor: pointer; font-weight: bold; }
+        .btn { background: #ff4500; color: white; padding: 10px 20px; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; }
         .btn:hover { background: #ff6347; }
         .status-ATIVO { color: #00ff00; }
-        .status-CAÍDO { color: #ff0000; text-decoration: line-through; }
+        .status-CAÍDO { color: #ff0000; text-decoration: line-through; opacity: 0.6; }
     </style>
 </head>
 <body>
@@ -60,48 +60,52 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def index():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id_heroi, nome, classe, hp_atual, hp_max, status FROM TB_HEROIS ORDER BY id_heroi")
-    herois = cursor.fetchall()
-    conn.close()
-    return render_template_string(HTML_TEMPLATE, herois=herois)
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id_heroi, nome, classe, hp_atual, hp_max, status FROM TB_HEROIS ORDER BY id_heroi")
+        herois = cursor.fetchall()
+        conn.close()
+        return render_template_string(HTML_TEMPLATE, herois=herois)
+    except Exception as e:
+        return f"Erro de Conexão: {str(e)}. Verifique se as variáveis de ambiente e o acesso ao banco estão corretos."
 
-@app.route('/processar', method=['POST'])
+@app.route('/processar', methods=['POST'])
 def processar():
-    conn = get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    # Bloco PL/SQL
-    plsql_block = """
-    DECLARE
-        v_dano_nevoa NUMBER := 15; -- Dano fixo por turno
-        CURSOR c_herois IS 
-            SELECT id_heroi, hp_atual 
-            FROM TB_HEROIS 
-            WHERE status = 'ATIVO' 
-            FOR UPDATE;
-    BEGIN
-        FOR r_heroi IN c_herois LOOP
-            -- Cálculo de dano
-            IF (r_heroi.hp_atual - v_dano_nevoa) <= 0 THEN
-                UPDATE TB_HEROIS 
-                SET hp_atual = 0, 
-                    status = 'CAÍDO' 
-                WHERE id_heroi = r_heroi.id_heroi;
-            ELSE
-                UPDATE TB_HEROIS 
-                SET hp_atual = hp_atual - v_dano_nevoa 
-                WHERE id_heroi = r_heroi.id_heroi;
-            END IF;
-        END LOOP;
-        COMMIT;
-    END;
-    """
-    
-    cursor.execute(plsql_block)
-    conn.close()
-    return redirect(url_for('index'))
+        plsql_block = """
+        DECLARE
+            v_dano_nevoa NUMBER := 15;
+            CURSOR c_herois IS 
+                SELECT id_heroi, hp_atual 
+                FROM TB_HEROIS 
+                WHERE status = 'ATIVO' 
+                FOR UPDATE;
+        BEGIN
+            FOR r_heroi IN c_herois LOOP
+                IF (r_heroi.hp_atual - v_dano_nevoa) <= 0 THEN
+                    UPDATE TB_HEROIS 
+                    SET hp_atual = 0, 
+                        status = 'CAÍDO' 
+                    WHERE id_heroi = r_heroi.id_heroi;
+                ELSE
+                    UPDATE TB_HEROIS 
+                    SET hp_atual = hp_atual - v_dano_nevoa 
+                    WHERE id_heroi = r_heroi.id_heroi;
+                END IF;
+            END LOOP;
+            COMMIT;
+        END;
+        """
+        
+        cursor.execute(plsql_block)
+        conn.close()
+        return redirect(url_for('index'))
+    except Exception as e:
+        return f"Erro ao processar turno: {str(e)}"
 
 if __name__ == '__main__':
     app.run(debug=True)
