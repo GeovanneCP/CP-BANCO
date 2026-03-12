@@ -112,27 +112,4 @@ def processar():
         cursor.execute(plsql_block)
         return redirect(url_for('index'))
     except Exception as e:
-<<<<<<< HEAD
         return f"Erro ao processar turno: {str(e)}"
-=======
-        return f"Erro ao processar: {str(e)}"
-    finally:
-        if conn: conn.close()
-
-@app.route('/resetar', methods=['POST'])
-def resetar():
-    conn = None
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE TB_HEROIS SET hp_atual = hp_max, status = 'ATIVO'")
-        conn.commit()
-        return redirect(url_for('index'))
-    except Exception as e:
-        return f"Erro ao resetar: {str(e)}"
-    finally:
-        if conn: conn.close()
-
-if __name__ == '__main__':
-    app.run(debug=True)
->>>>>>> 104341d415e95a9e92ad005d93e9f8575f109f0d
