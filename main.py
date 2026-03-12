@@ -1,14 +1,11 @@
 import os
 import oracledb
 from flask import Flask, render_template_string, request, redirect, url_for
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = Flask(__name__)
 
 DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASS')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_DSN = os.getenv('DB_DSN')
 
 def get_connection():
@@ -28,7 +25,7 @@ HTML_TEMPLATE = """
         table { border-collapse: collapse; width: 100%; background: #222; border: 1px solid #444; }
         th, td { border: 1px solid #444; padding: 12px; text-align: left; }
         th { background: #333; color: #ff4500; }
-        .btn { color: white; padding: 15px 25px; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 16px; }
+        .btn { color: white; padding: 15px 25px; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; font-size: 16px; transition: 0.3s; }
         .btn-damage { background: #ff4500; }
         .btn-reset { background: #008cba; }
         .btn:hover { opacity: 0.8; transform: scale(1.02); }
@@ -39,26 +36,18 @@ HTML_TEMPLATE = """
 <body>
     <div class="container">
         <h1>⚔️ O Despertar do Kernel Ancestral</h1>
-        <p>Controle o destino dos heróis de SQLgard.</p>
-        
         <div class="controls">
             <form action="/processar" method="post">
-                <button type="submit" class="btn btn-damage">🌀 PRÓXIMO TURNO (Dano)</button>
+                <button type="submit" class="btn btn-damage">🌀 PRÓXIMO TURNO</button>
             </form>
-
             <form action="/resetar" method="post">
-                <button type="submit" class="btn btn-reset">💖 RESTAURAR TODOS (Reset)</button>
+                <button type="submit" class="btn btn-reset">💖 RESTAURAR TUDO</button>
             </form>
         </div>
-
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Herói</th>
-                    <th>Classe</th>
-                    <th>HP Atual / Max</th>
-                    <th>Status</th>
+                    <th>ID</th><th>Herói</th><th>Classe</th><th>HP Atual / Max</th><th>Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -98,18 +87,24 @@ def processar():
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        plsql_block = """
-        DECLARE
-            v_dano NUMBER := 15;
-        BEGIN
-            UPDATE TB_HEROIS 
-            SET hp_atual = CASE WHEN (hp_atual - v_dano) < 0 THEN 0 ELSE hp_atual - v_dano END,
-                status = CASE WHEN (hp_atual - v_dano) <= 0 THEN 'CAÍDO' ELSE 'ATIVO' END
-            WHERE status = 'ATIVO';
-            COMMIT;
-        END;
-        """
-        cursor.execute(plsql_block)
+        cursor.execute("UPDATE TB_HEROIS SET hp_atual = CASE WHEN (hp_atual - 15) < 0 THEN 0 ELSE hp_atual - 15 END, status = CASE WHEN (hp_atual - 15) <= 0 THEN 'CAÍDO' ELSE 'ATIVO' END WHERE status = 'ATIVO'")
+        conn.commit()
         return redirect(url_for('index'))
     except Exception as e:
-        return f"Erro ao processar turno: {str(e)}"
+        return f"Erro: {str(e)}"
+    finally:
+        if conn: conn.close()
+
+@app.route('/resetar', methods=['POST'])
+def resetar():
+    conn = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE TB_HEROIS SET hp_atual = hp_max, status = 'ATIVO'")
+        conn.commit()
+        return redirect(url_for('index'))
+    except Exception as e:
+        return f"Erro: {str(e)}"
+    finally:
+        if conn: conn.close()
